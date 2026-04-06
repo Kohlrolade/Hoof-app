@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% block title %}Kunden{% endblock %}
+{% block content %}
+<h1 class="page-title">Kunden</h1>
+<div class="grid grid-2">
+  <div class="card">
+    <h2>Suche</h2>
+    <form class="inline" method="get" action="/customers">
+      <input type="text" name="q" value="{{ q }}" placeholder="Name oder Kundennummer">
+      <button type="submit">Suchen</button>
+      <a class="btn" href="/customers">Zurücksetzen</a>
+    </form>
+  </div>
+  <div class="card">
+    <h2>Neuen Kunden anlegen</h2>
+    <form class="stack" method="post" action="/customers">
+      <div class="grid grid-3">
+        <label>Kundennummer<input type="text" name="customer_number" placeholder="leer = automatisch"></label>
+        <label>Typ<select name="type"><option value="private">Privat</option><option value="business">Firma</option></select></label>
+        <label>E-Mail<input type="email" name="email"></label>
+      </div>
+      <div class="grid grid-3">
+        <label>Vorname<input type="text" name="first_name"></label>
+        <label>Nachname<input type="text" name="last_name"></label>
+        <label>Firma<input type="text" name="company_name"></label>
+      </div>
+      <div class="grid grid-3">
+        <label>Straße<input type="text" name="street"></label>
+        <label>PLZ<input type="text" name="postal_code"></label>
+        <label>Ort<input type="text" name="city"></label>
+      </div>
+      <div class="grid grid-2">
+        <label>Telefon<input type="text" name="phone"></label>
+        <label>Notiz<input type="text" name="note"></label>
+      </div>
+      <button type="submit">Kunde speichern</button>
+    </form>
+  </div>
+</div>
+<div class="card" style="margin-top:16px">
+  <h2>Kundenliste</h2>
+  <div class="table-wrap">
+    <table>
+      <tr><th>Kundennr.</th><th>Name</th><th>Ort</th><th>E-Mail</th><th>Telefon</th></tr>
+      {% for customer in customers %}
+        <tr>
+          <td>{{ customer.customer_number }}</td>
+          <td>{{ customer_label(customer) }}</td>
+          <td>{{ customer.city }}</td>
+          <td>{{ customer.email or '-' }}</td>
+          <td>{{ customer.phone or '-' }}</td>
+        </tr>
+      {% endfor %}
+    </table>
+  </div>
+</div>
+{% endblock %}

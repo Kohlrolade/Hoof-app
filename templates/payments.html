@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% block title %}Zahlungen{% endblock %}
+{% block content %}
+<h1 class="page-title">Zahlungen & Kontoauszüge</h1>
+<div class="grid grid-2">
+  <div class="card">
+    <h2>Kontoauszug importieren</h2>
+    <form class="stack" method="post" action="/payments/import" enctype="multipart/form-data">
+      <label>CSV-Datei<input type="file" name="file" accept=".csv" required></label>
+      <button type="submit">CSV importieren</button>
+      <div class="help">Zum Testen liegt im Projekt eine Datei <code>sample_bank_import.csv</code> bereit.</div>
+    </form>
+  </div>
+  <div class="card">
+    <h2>Offene / überfällige Rechnungen</h2>
+    <div class="table-wrap">
+      <table>
+        <tr><th>Rechnung</th><th>Kunde</th><th>Fällig</th><th>Status</th><th class="right">Brutto</th></tr>
+        {% for inv in open_invoices[:12] %}
+          <tr><td><a href="/invoices/{{ inv.id }}">{{ inv.invoice_number or 'Entwurf' }}</a></td><td>{{ customer_label(inv) }}</td><td>{{ fmt_date(inv.due_date) }}</td><td><span class="badge {{ inv.status }}">{{ inv.status }}</span></td><td class="right">{{ euro(inv.gross_total) }}</td></tr>
+        {% endfor %}
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="grid grid-2" style="margin-top:16px">
+  <div class="card">
+    <h2>Zuordnungsvorschläge aus Kontoauszug</h2>
+    <div class="table-wrap">
+      <table>
+        <tr><th>Buchung</th><th>Zahler</th><th>Verwendungszweck</th><th class="right">Betrag</th><th>Rechnung</th><th></th></tr>
+        {% for tx in suggestions %}
+          <tr>
+            <td>{{ fmt_date(tx.booking_date) }}</td>
+            <td>{{ tx.payer_name or '-' }}</td>
+            <td>{{ tx.purpose or '-' }}</td>
+            <td class="right">{{ euro(tx.amount) }}</td>
+            <td>
+              {% if tx.matched_invoice_id %}
+                <a href="/invoices/{{ tx.matched_invoice_id }}">{{ tx.invoice_number }}</a>
+              {% else %}
+                -
+              {% endif %}
+            </td>
+            <td>
+              {% if tx.matched_invoice_id %}
+                <form class="inline" method="post" action="/payments/transactions/{{ tx.id }}/confirm">
+                  <input type="hidden" name="invoice_id" value="{{ tx.matched_invoice_id }}">
+                  <button class="small success" type="submit">Bestätigen</button>
+                </form>
+              {% endif %}
+              <form class="inline" method="post" action="/payments/transactions/{{ tx.id }}/ignore"><button class="small danger" type="submit">Ignorieren</button></form>
+            </td>
+          </tr>
+        {% endfor %}
+      </table>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Zahlungserinnerungen</h2>
+    <div class="table-wrap">
+      <table>
+        <tr><th>Rechnung</th><th>Kunde</th><th>Fällig</th><th>Status</th><th></th></tr>
+        {% for inv in reminder_candidates %}
+          <tr>
+            <td><a href="/invoices/{{ inv.id }}">{{ inv.invoice_number }}</a></td>
+            <td>{{ customer_label(inv) }}</td>
+            <td>{{ fmt_date(inv.due_date) }}</td>
+            <td><span class="badge {{ inv.status }}">{{ inv.status }}</span></td>
+            <td><form class="inline" method="post" action="/payments/reminders/{{ inv.id }}"><button class="small">Erinnerung senden</button></form></td>
+          </tr>
+        {% endfor %}
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="card" style="margin-top:16px">
+  <h2>Letzte Bankbuchungen</h2>
+  <div class="table-wrap">
+    <table>
+      <tr><th>Datum</th><th>Zahler</th><th>Verwendungszweck</th><th class="right">Betrag</th><th>Status</th></tr>
+      {% for tx in transactions %}
+        <tr><td>{{ fmt_date(tx.booking_date) }}</td><td>{{ tx.payer_name or '-' }}</td><td>{{ tx.purpose or '-' }}</td><td class="right">{{ euro(tx.amount) }}</td><td><span class="badge {{ tx.match_status }}">{{ tx.match_status }}</span></td></tr>
+      {% endfor %}
+    </table>
+  </div>
+</div>
+{% endblock %}

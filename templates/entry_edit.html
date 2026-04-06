@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block title %}Eintrag bearbeiten{% endblock %}
+{% block content %}
+<h1 class="page-title">Eintrag bearbeiten</h1>
+<div class="card">
+  <div class="muted">Pferd: {{ entry.horse_name }}</div>
+  <form class="stack" method="post" action="/entries/{{ entry.id }}/edit">
+    <div class="grid grid-3">
+      <label>Leistung<input type="text" name="service_name" value="{{ entry.actual_service_name }}" required></label>
+      <label>Anzahl<input type="number" step="0.01" min="0.01" name="quantity" value="{{ entry.quantity }}" required></label>
+      <label>Einheit<input type="text" name="unit" value="{{ entry.unit }}" required></label>
+    </div>
+    <div class="grid grid-3">
+      <label>Einzelpreis brutto<input type="number" step="0.01" min="0" name="unit_price_gross" value="{{ entry.unit_price_gross }}" required></label>
+      <label>Steuersatz<input type="number" step="0.01" min="0" name="vat_rate" value="{{ entry.vat_rate }}" required></label>
+      <label>Notiz<input type="text" name="note" value="{{ entry.note or '' }}"></label>
+    </div>
+    <div class="row-actions">
+      <button type="submit">Speichern</button>
+      <a class="btn" href="/delivery-notes/{{ entry.delivery_note_id }}">Zurück</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

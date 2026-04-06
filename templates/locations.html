@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block title %}Locations{% endblock %}
+{% block content %}
+<h1 class="page-title">Locations / Ställe</h1>
+<div class="grid grid-2">
+  <div class="card">
+    <h2>Neue Location</h2>
+    <form class="stack" method="post" action="/locations">
+      <div class="grid grid-2">
+        <label>Name<input type="text" name="name" required></label>
+        <label>Ansprechpartner<input type="text" name="contact_person"></label>
+      </div>
+      <div class="grid grid-3">
+        <label>Straße<input type="text" name="street"></label>
+        <label>PLZ<input type="text" name="postal_code"></label>
+        <label>Ort<input type="text" name="city"></label>
+      </div>
+      <div class="grid grid-2">
+        <label>Telefon<input type="text" name="phone"></label>
+        <label>Notiz<input type="text" name="note"></label>
+      </div>
+      <button type="submit">Location speichern</button>
+    </form>
+  </div>
+  <div class="card">
+    <h2>Liste</h2>
+    <div class="table-wrap">
+      <table>
+        <tr><th>Name</th><th>Ort</th><th>Ansprechpartner</th><th>Telefon</th></tr>
+        {% for row in locations %}
+          <tr><td>{{ row.name }}</td><td>{{ row.city }}</td><td>{{ row.contact_person or '-' }}</td><td>{{ row.phone or '-' }}</td></tr>
+        {% endfor %}
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

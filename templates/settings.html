@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% block title %}Einstellungen{% endblock %}
+{% block content %}
+<h1 class="page-title">Einstellungen</h1>
+<div class="grid grid-2">
+  <div class="card">
+    <h2>Firmendaten & Mailversand</h2>
+    <form class="stack" method="post" action="/settings/company">
+      <div class="grid grid-3">
+        <label>Firmenname<input type="text" name="company_name" value="{{ company.company_name or '' }}" required></label>
+        <label>Inhaber<input type="text" name="owner_name" value="{{ company.owner_name or '' }}" required></label>
+        <label>E-Mail<input type="email" name="email" value="{{ company.email or '' }}"></label>
+      </div>
+      <div class="grid grid-3">
+        <label>Straße<input type="text" name="street" value="{{ company.street or '' }}"></label>
+        <label>PLZ<input type="text" name="postal_code" value="{{ company.postal_code or '' }}"></label>
+        <label>Ort<input type="text" name="city" value="{{ company.city or '' }}"></label>
+      </div>
+      <div class="grid grid-3">
+        <label>Telefon<input type="text" name="phone" value="{{ company.phone or '' }}"></label>
+        <label>Steuernummer<input type="text" name="tax_number" value="{{ company.tax_number or '' }}"></label>
+        <label>Zahlungsziel Tage<input type="number" name="default_payment_term_days" value="{{ company.default_payment_term_days or 14 }}"></label>
+      </div>
+      <div class="grid grid-3">
+        <label>Bankname<input type="text" name="bank_name" value="{{ company.bank_name or '' }}"></label>
+        <label>IBAN<input type="text" name="iban" value="{{ company.iban or '' }}"></label>
+        <label>BIC<input type="text" name="bic" value="{{ company.bic or '' }}"></label>
+      </div>
+      <label>Überweisungsbetreff Vorlage<input type="text" name="invoice_payment_reference_template" value="{{ company.invoice_payment_reference_template or '{invoice_number} {last_name}' }}"></label>
+      <div class="section-divider"></div>
+      <div class="help">Für echten Versand über outlook.de trage SMTP-Daten ein. Ohne SMTP wird nur ein Testlauf protokolliert.</div>
+      <div class="grid grid-3">
+        <label>SMTP Host<input type="text" name="smtp_host" value="{{ company.smtp_host or '' }}"></label>
+        <label>SMTP Port<input type="number" name="smtp_port" value="{{ company.smtp_port or 587 }}"></label>
+        <label>SMTP Benutzer<input type="text" name="smtp_username" value="{{ company.smtp_username or '' }}"></label>
+      </div>
+      <div class="grid grid-3">
+        <label>SMTP Passwort<input type="password" name="smtp_password" value="{{ company.smtp_password or '' }}"></label>
+        <label>TLS<select name="smtp_use_tls"><option value="1" {% if company.smtp_use_tls %}selected{% endif %}>Ja</option><option value="0" {% if not company.smtp_use_tls %}selected{% endif %}>Nein</option></select></label>
+      </div>
+      <button type="submit">Firmeneinstellungen speichern</button>
+    </form>
+  </div>
+  <div class="card">
+    <h2>Benutzer & Rechte</h2>
+    <div class="table-wrap">
+      <table>
+        <tr><th>Benutzer</th><th>Rolle</th><th>Module</th></tr>
+        {% for u in users %}
+          <tr>
+            <td>{{ u.display_name }}</td>
+            <td>{{ u.role_key }}</td>
+            <td class="small">
+              {% for module in modules %}
+                {% set p = perms_map.get(u.id, {}).get(module) %}
+                {% if p and p.can_view %}<div>{{ module }}{% if p.can_edit %} · edit{% endif %}{% if p.can_send %} · send{% endif %}{% if p.can_manage_payments %} · pay{% endif %}</div>{% endif %}
+              {% endfor %}
+            </td>
+          </tr>
+        {% endfor %}
+      </table>
+    </div>
+    <div class="help" style="margin-top:10px">Die Benutzerrechte sind für v1 als Startkonfiguration gesetzt: Inhaber, Büro und Mitarbeiter.</div>
+  </div>
+</div>
+<div class="card" style="margin-top:16px">
+  <h2>Mailvorlagen</h2>
+  {% for tpl in templates_rows %}
+    <form class="stack" method="post" action="/settings/templates/{{ tpl.id }}" style="margin-bottom:18px">
+      <h3>{{ tpl.template_key }}</h3>
+      <label>Betreff<input type="text" name="subject_template" value="{{ tpl.subject_template }}"></label>
+      <label>Text<textarea name="body_template">{{ tpl.body_template }}</textarea></label>
+      <button type="submit">Vorlage speichern</button>
+    </form>
+      {% if not loop.last %}<div class="section-divider"></div>{% endif %}
+  {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block title %}Arbeitszeiten{% endblock %}
+{% block content %}
+<h1 class="page-title">Arbeitszeiten</h1>
+<div class="grid grid-2">
+  <div class="card">
+    <h2>Eintrag erfassen</h2>
+    <form class="stack" method="post" action="/time-entries">
+      <div class="grid grid-3">
+        <label>Mitarbeiter<select name="user_id">{% for u in users %}<option value="{{ u.id }}" {% if user.role_key == 'employee' and user.id == u.id %}selected{% endif %}>{{ u.display_name }}</option>{% endfor %}</select></label>
+        <label>Datum<input type="date" name="entry_date" value="{{ today }}" required></label>
+        <label>Pause (Min.)<input type="number" name="break_minutes" value="30" min="0" required></label>
+      </div>
+      <div class="grid grid-3">
+        <label>Beginn<input type="time" name="start_time" value="08:00" required></label>
+        <label>Ende<input type="time" name="end_time" value="17:00" required></label>
+        <label>Notiz<input type="text" name="note"></label>
+      </div>
+      <button type="submit">Arbeitszeit speichern</button>
+    </form>
+  </div>
+  <div class="card">
+    <h2>Erfasste Zeiten</h2>
+    <div class="table-wrap">
+      <table>
+        <tr><th>Datum</th><th>Mitarbeiter</th><th>Beginn</th><th>Ende</th><th>Pause</th><th>Arbeitszeit</th><th>Status</th></tr>
+        {% for row in entries %}
+          <tr>
+            <td>{{ fmt_date(row.entry_date) }}</td>
+            <td>{{ row.display_name }}</td>
+            <td>{{ row.start_time }}</td>
+            <td>{{ row.end_time }}</td>
+            <td>{{ row.break_minutes }} min</td>
+            <td>{{ (row.work_minutes // 60) }}h {{ (row.work_minutes % 60) }}m</td>
+            <td><span class="badge {{ row.status }}">{{ row.status }}</span></td>
+          </tr>
+        {% endfor %}
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
