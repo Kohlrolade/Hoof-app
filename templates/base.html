@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Hufschmied App{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <div class="header-row">
+    <div class="brand">Hufschmied Betriebs-App v1.0</div>
+    <nav>
+      {% if permissions.dashboard_view %}<a href="/" class="{% if request.url.path == '/' %}active{% endif %}">Dashboard</a>{% endif %}
+      {% if permissions.delivery_notes_view %}<a href="/delivery-notes" class="{% if request.url.path.startswith('/delivery-notes') or request.url.path.startswith('/entries') %}active{% endif %}">Tageslieferscheine</a>{% endif %}
+      {% if permissions.invoices_view %}<a href="/invoices" class="{% if request.url.path.startswith('/invoices') %}active{% endif %}">Rechnungen</a>{% endif %}
+      {% if permissions.payments_view %}<a href="/payments" class="{% if request.url.path.startswith('/payments') %}active{% endif %}">Zahlungen</a>{% endif %}
+      {% if permissions.time_entries_view %}<a href="/time-entries" class="{% if request.url.path.startswith('/time-entries') %}active{% endif %}">Arbeitszeiten</a>{% endif %}
+      {% if permissions.customers_view %}<a href="/customers" class="{% if request.url.path.startswith('/customers') %}active{% endif %}">Kunden</a>{% endif %}
+      {% if permissions.horses_view %}<a href="/horses" class="{% if request.url.path.startswith('/horses') %}active{% endif %}">Pferde</a>{% endif %}
+      {% if permissions.locations_view %}<a href="/locations" class="{% if request.url.path.startswith('/locations') %}active{% endif %}">Locations</a>{% endif %}
+      {% if permissions.settings_view %}<a href="/settings" class="{% if request.url.path.startswith('/settings') %}active{% endif %}">Einstellungen</a>{% endif %}
+    </nav>
+    <div class="small">Angemeldet als <strong>{{ user.display_name }}</strong> ({{ user.role_key }})</div>
+  </div>
+</header>
+<main>
+  {% block content %}{% endblock %}
+  <div class="footer-note">Test-App für deinen Betrieb. Die Datenbank ist bereits mit deinen importierten Kunden und Demo-Daten vorbelegt.</div>
+</main>
+</body>
+</html>

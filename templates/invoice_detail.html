@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+{% block title %}Rechnung{% endblock %}
+{% block content %}
+<h1 class="page-title">Rechnung {{ invoice.invoice_number or 'Entwurf' }}</h1>
+<div class="grid grid-2">
+  <div class="card">
+    <h2>Kopf</h2>
+    <div><strong>Kunde:</strong> {{ customer_label(customer) }}</div>
+    <div><strong>Status:</strong> <span class="badge {{ invoice.status }}">{{ invoice.status }}</span></div>
+    <div><strong>Leistungsdatum:</strong> {{ fmt_date(invoice.service_date) }}</div>
+    <div><strong>Rechnungsdatum:</strong> {{ fmt_date(invoice.invoice_date) }}</div>
+    <div><strong>Fällig:</strong> {{ fmt_date(invoice.due_date) }}</div>
+    {% if group_link %}<div><strong>Quelle:</strong> <a href="/delivery-notes/{{ group_link.delivery_note_id }}">Tageslieferschein #{{ group_link.delivery_note_id }}</a></div>{% endif %}
+    <div class="section-divider"></div>
+    <div class="row-actions">
+      <a class="btn" href="/invoices/{{ invoice.id }}/pdf" target="_blank">PDF öffnen</a>
+      {% if invoice.status in ['draft'] and permissions.invoices_approve %}
+        <form class="inline" method="post" action="/invoices/{{ invoice.id }}/approve">
+          <input type="date" name="invoice_date" value="{{ invoice.invoice_date }}" required>
+          <input type="number" name="payment_term_days" value="{{ invoice.payment_term_days }}" min="0" required>
+          <button class="success" type="submit">Freigeben</button>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+  <div class="card">
+    <h2>Summen</h2>
+    <div><strong>Netto:</strong> {{ euro(invoice.net_total) }}</div>
+    <div><strong>USt:</strong> {{ euro(invoice.vat_total) }}</div>
+    <div><strong>Brutto:</strong> {{ euro(invoice.gross_total) }}</div>
+    <div><strong>Empfänger:</strong> {{ invoice.email_recipient or customer.email or '-' }}</div>
+  </div>
+</div>
+
+<div class="card" style="margin-top:16px">
+  <h2>Positionen</h2>
+  <div class="table-wrap">
+    <table>
+      <tr><th>Beschreibung</th><th>Anzahl</th><th>Einheit</th><th class="right">Einzelpreis</th><th class="right">Gesamt</th></tr>
+      {% for line in lines %}
+        <tr>
+          <td>{{ line.description }}</td>
+          <td>{{ line.quantity }}</td>
+          <td>{{ line.unit }}</td>
+          <td class="right">{{ euro(line.unit_price_gross) }}</td>
+          <td class="right">{{ euro(line.line_total_gross) }}</td>
+        </tr>
+      {% endfor %}
+    </table>
+  </div>
+</div>
+
+<div class="grid grid-2" style="margin-top:16px">
+  <div class="card">
+    <h2>Versand</h2>
+    <form class="stack" method="post" action="/invoices/{{ invoice.id }}/send">
+      <label>Empfänger<input type="email" name="recipient" value="{{ customer.email or invoice.email_recipient or '' }}" required></label>
+      <label>Betreff<input type="text" name="subject" value="{{ email_subject }}" required></label>
+      <label>Mailtext<textarea name="body">{{ email_body }}</textarea></label>
+      <button type="submit" {% if not permissions.invoices_send %}disabled{% endif %}>Rechnung senden</button>
+      <div class="help">Wenn SMTP noch nicht eingerichtet ist, wird der Versand als Testlauf protokolliert.</div>
+    </form>
+  </div>
+  <div class="card">
+    <h2>Zahlungen</h2>
+    <div class="table-wrap">
+      <table>
+        <tr><th>Datum</th><th>Art</th><th>Notiz</th><th class="right">Betrag</th></tr>
+        {% for p in payments %}
+          <tr><td>{{ fmt_date(p.payment_date) }}</td><td>{{ p.payment_method }}</td><td>{{ p.note or '-' }}</td><td class="right">{{ euro(p.amount) }}</td></tr>
+        {% endfor %}
+      </table>
+    </div>
+    {% if permissions.payments_manage_payments %}
+    <div class="section-divider"></div>
+    <form class="stack" method="post" action="/invoices/{{ invoice.id }}/payments">
+      <div class="grid grid-3">
+        <label>Zahlungsdatum<input type="date" name="payment_date" value="{{ today }}" required></label>
+        <label>Betrag<input type="number" step="0.01" min="0" name="amount" required></label>
+        <label>Art<select name="payment_method"><option value="bank_transfer">Überweisung</option><option value="cash">Bar</option></select></label>
+      </div>
+      <label>Notiz<input type="text" name="note"></label>
+      <button class="secondary" type="submit">Zahlung manuell erfassen</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card" style="margin-top:16px">
+  <h2>Versandprotokoll</h2>
+  <div class="table-wrap">
+    <table>
+      <tr><th>Zeitpunkt</th><th>Empfänger</th><th>Status</th><th>Betreff</th><th>Hinweis</th></tr>
+      {% for log in logs %}
+        <tr><td>{{ log.sent_at }}</td><td>{{ log.recipient_email }}</td><td><span class="badge {{ log.status }}">{{ log.status }}</span></td><td>{{ log.subject }}</td><td>{{ log.error_message or '-' }}</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+</div>
+{% endblock %}

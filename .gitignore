@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+.env
+.DS_Store
+
+app.db
+generated_pdfs/*.pdf
+!generated_pdfs/.gitkeep
+
+*.sqlite
+*.sqlite3
+*.db-journal
+
+logs/
+*.log

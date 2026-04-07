@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block title %}Pferde{% endblock %}
+{% block content %}
+<h1 class="page-title">Pferde</h1>
+<div class="grid grid-2">
+  <div class="card">
+    <h2>Neues Pferd</h2>
+    <form class="stack" method="post" action="/horses">
+      <div class="grid grid-3">
+        <label>Name<input type="text" name="name" required></label>
+        <label>Kunde<select name="customer_id" required>{% for c in customers %}<option value="{{ c.id }}">{{ customer_label(c) }}</option>{% endfor %}</select></label>
+        <label>Location<select name="location_id"><option value="">-</option>{% for l in locations %}<option value="{{ l.id }}">{{ l.name }}</option>{% endfor %}</select></label>
+      </div>
+      <label>Notiz<input type="text" name="note"></label>
+      <button type="submit">Pferd speichern</button>
+    </form>
+  </div>
+  <div class="card">
+    <h2>Filter</h2>
+    <form class="inline" method="get" action="/horses">
+      <select name="customer_id">
+        <option value="">Alle Kunden</option>
+        {% for c in customers %}<option value="{{ c.id }}" {% if selected_customer_id == c.id %}selected{% endif %}>{{ customer_label(c) }}</option>{% endfor %}
+      </select>
+      <button type="submit">Anzeigen</button>
+      <a class="btn" href="/horses">Zurücksetzen</a>
+    </form>
+  </div>
+</div>
+<div class="card" style="margin-top:16px">
+  <div class="table-wrap">
+    <table>
+      <tr><th>Name</th><th>Kunde</th><th>Location</th><th>Notiz</th></tr>
+      {% for horse in horses %}
+        <tr><td>{{ horse.name }}</td><td>{{ customer_label(horse) }}</td><td>{{ horse.location_name or '-' }}</td><td>{{ horse.note or '-' }}</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+</div>
+{% endblock %}

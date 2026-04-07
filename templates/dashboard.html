@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1 class="page-title">Dashboard</h1>
+<div class="toolbar card">
+  <div><strong>Schneller Benutzerwechsel:</strong></div>
+  {% for switch_user in users %}
+    <a class="btn small" href="/switch-user/{{ switch_user.id }}">{{ switch_user.display_name }}</a>
+  {% endfor %}
+</div>
+<div class="grid grid-3">
+  <div class="card"><div class="muted">Offene Tageslieferscheine</div><div class="kpi">{{ stats.delivery_notes_open }}</div></div>
+  <div class="card"><div class="muted">Entwürfe/Freigaben Rechnungen</div><div class="kpi">{{ stats.invoices_draft }}</div></div>
+  <div class="card"><div class="muted">Überfällige Rechnungen</div><div class="kpi">{{ stats.invoices_overdue }}</div></div>
+  <div class="card"><div class="muted">Offene Bankbuchungen</div><div class="kpi">{{ stats.payments_unmatched }}</div></div>
+  <div class="card"><div class="muted">Offene Arbeitszeiten</div><div class="kpi">{{ stats.time_entries_open }}</div></div>
+</div>
+<div class="grid grid-2" style="margin-top:16px">
+  <div class="card">
+    <h2>Letzte Tageslieferscheine</h2>
+    <div class="table-wrap">
+      <table>
+        <tr><th>Nr.</th><th>Datum</th><th>Location</th><th>Status</th></tr>
+        {% for row in recent_delivery_notes %}
+          <tr>
+            <td><a href="/delivery-notes/{{ row.id }}">{{ row.delivery_note_number }}</a></td>
+            <td>{{ fmt_date(row.service_date) }}</td>
+            <td>{{ row.location_name }}</td>
+            <td><span class="badge {{ row.status }}">{{ row.status }}</span></td>
+          </tr>
+        {% endfor %}
+      </table>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Letzte Rechnungen</h2>
+    <div class="table-wrap">
+      <table>
+        <tr><th>Nr.</th><th>Kunde</th><th>Datum</th><th>Status</th><th class="right">Brutto</th></tr>
+        {% for row in recent_invoices %}
+          <tr>
+            <td><a href="/invoices/{{ row.id }}">{{ row.invoice_number or 'Entwurf' }}</a></td>
+            <td>{{ customer_label(row) }}</td>
+            <td>{{ fmt_date(row.invoice_date) }}</td>
+            <td><span class="badge {{ row.status }}">{{ row.status }}</span></td>
+            <td class="right">{{ euro(row.gross_total) }}</td>
+          </tr>
+        {% endfor %}
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+{% block title %}Tageslieferschein {{ dn.delivery_note_number }}{% endblock %}
+{% block content %}
+<h1 class="page-title">Tageslieferschein {{ dn.delivery_note_number }}</h1>
+<div class="grid grid-2">
+  <div class="card">
+    <h2>Kopf</h2>
+    <div><strong>Location:</strong> {{ dn.location_name }}{% if dn.location_city %} ({{ dn.location_city }}){% endif %}</div>
+    <div><strong>Leistungsdatum:</strong> {{ fmt_date(dn.service_date) }}</div>
+    <div><strong>Status:</strong> <span class="badge {{ dn.status }}">{{ dn.status }}</span></div>
+    <div><strong>Notiz:</strong> {{ dn.note or '-' }}</div>
+  </div>
+  <div class="card">
+    <h2>Kundenblock hinzufügen</h2>
+    <form class="stack" method="post" action="/delivery-notes/{{ dn.id }}/groups">
+      <div class="grid grid-3">
+        <label>Vorhandener Kunde<select name="customer_id"><option value="">- oder Schnellanlage -</option>{% for c in customers %}<option value="{{ c.id }}">{{ customer_label(c) }} ({{ c.customer_number }})</option>{% endfor %}</select></label>
+        <label>Zahlungsart<select name="payment_method"><option value="bank_transfer">Überweisung</option><option value="cash">Bar</option></select></label>
+        <label>Notiz<input type="text" name="note"></label>
+      </div>
+      <div class="section-divider"></div>
+      <div class="help">Optional: Schnellanlage Kunde, falls noch nicht vorhanden.</div>
+      <div class="grid grid-3">
+        <label>Typ<select name="new_type"><option value="private">Privat</option><option value="business">Firma</option></select></label>
+        <label>Vorname<input type="text" name="new_first_name"></label>
+        <label>Nachname<input type="text" name="new_last_name"></label>
+      </div>
+      <div class="grid grid-3">
+        <label>Firma<input type="text" name="new_company_name"></label>
+        <label>E-Mail<input type="email" name="new_email"></label>
+        <label>Telefon<input type="text" name="new_phone"></label>
+      </div>
+      <div class="grid grid-3">
+        <label>Straße<input type="text" name="new_street"></label>
+        <label>PLZ<input type="text" name="new_postal_code"></label>
+        <label>Ort<input type="text" name="new_city"></label>
+      </div>
+      <button type="submit">Kundenblock speichern</button>
+    </form>
+  </div>
+</div>
+
+{% for group in groups %}
+  <div class="group-box">
+    <div class="toolbar">
+      <div><strong>{{ group.customer_name }}</strong></div>
+      <span class="badge {{ group.status }}">{{ group.status }}</span>
+      <div class="muted">Zahlungsart: {{ 'Bar' if group.payment_method == 'cash' else 'Überweisung' }}</div>
+      <div class="muted">Summe: <strong>{{ euro(group.total) }}</strong></div>
+      {% if group.invoice_id %}<a class="btn small" href="/invoices/{{ group.invoice_id }}">Rechnung öffnen</a>{% endif %}
+      {% if not group.invoice_id and permissions.invoices_create %}
+        <form class="inline" method="post" action="/groups/{{ group.id }}/invoice-draft"><button class="small success" type="submit">Rechnung vorbereiten</button></form>
+      {% endif %}
+    </div>
+    <div class="help">{{ group.note or 'Keine Gruppen-Notiz' }}</div>
+    <div class="table-wrap" style="margin-top:12px">
+      <table>
+        <tr><th>Pferd</th><th>Leistung</th><th>Anzahl</th><th>Einheit</th><th class="right">Einzelpreis</th><th class="right">Gesamt</th><th>Notiz</th><th></th></tr>
+        {% for e in group.entries %}
+          <tr>
+            <td>{{ e.horse_name }}</td>
+            <td>{{ e.actual_service_name }}</td>
+            <td>{{ e.quantity }}</td>
+            <td>{{ e.unit }}</td>
+            <td class="right">{{ euro(e.unit_price_gross) }}</td>
+            <td class="right">{{ euro(e.total_price_gross) }}</td>
+            <td>{{ e.note or '-' }}</td>
+            <td>
+              {% if group.status not in ['invoiced', 'paid_cash', 'invoice_draft'] %}
+                <div class="row-actions">
+                  <a class="btn small" href="/entries/{{ e.id }}/edit">Bearbeiten</a>
+                  <form class="inline" method="post" action="/entries/{{ e.id }}/delete" onsubmit="return confirm('Eintrag löschen?')"><button class="small danger" type="submit">Löschen</button></form>
+                </div>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </table>
+    </div>
+
+    {% if group.status not in ['invoiced', 'paid_cash', 'invoice_draft'] %}
+      <div class="section-divider"></div>
+      <h3>Leistung für diesen Kunden hinzufügen</h3>
+      <form class="stack entry-form" method="post" action="/groups/{{ group.id }}/entries">
+        <div class="grid grid-3">
+          <label>Pferd
+            <select name="horse_id" class="horse-select" data-customer-id="{{ group.customer_id }}">
+              <option value="">- vorhandenes Pferd wählen -</option>
+              {% for h in group.horses %}<option value="{{ h.id }}">{{ h.name }}</option>{% endfor %}
+            </select>
+          </label>
+          <label>oder neues Pferd<input type="text" name="new_horse_name" placeholder="nur wenn noch nicht angelegt"></label>
+          <label>Vorschlag<input type="text" name="suggested_service_name" class="suggested-field" readonly></label>
+        </div>
+        <div class="grid grid-3">
+          <label>Leistung<input type="text" name="service_name" class="service-field" required></label>
+          <label>Anzahl<input type="number" step="0.01" min="0.01" name="quantity" class="qty-field" required></label>
+          <label>Einheit<input type="text" name="unit" class="unit-field" required></label>
+        </div>
+        <div class="grid grid-3">
+          <label>Einzelpreis brutto<input type="number" step="0.01" min="0" name="unit_price_gross" class="price-field" required></label>
+          <label>Steuersatz<input type="number" step="0.01" min="0" name="vat_rate" class="vat-field" value="19" required></label>
+          <label>Notiz<input type="text" name="note"></label>
+        </div>
+        <button type="submit">Leistung speichern</button>
+      </form>
+    {% else %}
+      <div class="help">Dieser Kundenblock ist gesperrt, weil bereits eine Rechnung daraus erzeugt wurde.</div>
+    {% endif %}
+  </div>
+{% endfor %}
+
+<script>
+document.querySelectorAll('.entry-form').forEach(form => {
+  const select = form.querySelector('.horse-select');
+  if (!select) return;
+  select.addEventListener('change', async () => {
+    const horseId = select.value;
+    if (!horseId) return;
+    const customerId = select.dataset.customerId;
+    const res = await fetch(`/api/horse-suggestion/${horseId}?customer_id=${customerId}`);
+    const data = await res.json();
+    form.querySelector('.suggested-field').value = data.source ? `${data.source}: ${data.service_name || ''}` : '';
+    form.querySelector('.service-field').value = data.service_name || '';
+    form.querySelector('.qty-field').value = data.quantity || 1;
+    form.querySelector('.unit-field').value = data.unit || 'Stk.';
+    form.querySelector('.price-field').value = data.unit_price_gross || 0;
+    form.querySelector('.vat-field').value = data.vat_rate || 19;
+  });
+});
+</script>
+{% endblock %}
