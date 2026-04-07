@@ -1,132 +1,427 @@
 {% extends 'base.html' %}
 {% block title %}Tageslieferschein {{ dn.delivery_note_number }}{% endblock %}
 {% block content %}
-<h1 class="page-title">Tageslieferschein {{ dn.delivery_note_number }}</h1>
-<div class="grid grid-2">
-  <div class="card">
-    <h2>Kopf</h2>
-    <div><strong>Location:</strong> {{ dn.location_name }}{% if dn.location_city %} ({{ dn.location_city }}){% endif %}</div>
-    <div><strong>Leistungsdatum:</strong> {{ fmt_date(dn.service_date) }}</div>
+<h1 class="page-title">{{ dn.delivery_note_number }}</h1>
+
+<div class="card" style="padding:10px 14px;margin-bottom:12px">
+  <div class="toolbar" style="justify-content:flex-start;gap:16px;flex-wrap:wrap">
+    <div><strong>Datum:</strong> {{ fmt_date(dn.service_date) }}</div>
+    <div><strong>Angelegt von:</strong> {{ dn.created_by_name or '-' }}</div>
     <div><strong>Status:</strong> <span class="badge {{ dn.status }}">{{ dn.status }}</span></div>
     <div><strong>Notiz:</strong> {{ dn.note or '-' }}</div>
   </div>
-  <div class="card">
-    <h2>Kundenblock hinzufügen</h2>
-    <form class="stack" method="post" action="/delivery-notes/{{ dn.id }}/groups">
-      <div class="grid grid-3">
-        <label>Vorhandener Kunde<select name="customer_id"><option value="">- oder Schnellanlage -</option>{% for c in customers %}<option value="{{ c.id }}">{{ customer_label(c) }} ({{ c.customer_number }})</option>{% endfor %}</select></label>
-        <label>Zahlungsart<select name="payment_method"><option value="bank_transfer">Überweisung</option><option value="cash">Bar</option></select></label>
-        <label>Notiz<input type="text" name="note"></label>
-      </div>
-      <div class="section-divider"></div>
-      <div class="help">Optional: Schnellanlage Kunde, falls noch nicht vorhanden.</div>
-      <div class="grid grid-3">
-        <label>Typ<select name="new_type"><option value="private">Privat</option><option value="business">Firma</option></select></label>
-        <label>Vorname<input type="text" name="new_first_name"></label>
-        <label>Nachname<input type="text" name="new_last_name"></label>
-      </div>
-      <div class="grid grid-3">
-        <label>Firma<input type="text" name="new_company_name"></label>
-        <label>E-Mail<input type="email" name="new_email"></label>
-        <label>Telefon<input type="text" name="new_phone"></label>
-      </div>
-      <div class="grid grid-3">
-        <label>Straße<input type="text" name="new_street"></label>
-        <label>PLZ<input type="text" name="new_postal_code"></label>
-        <label>Ort<input type="text" name="new_city"></label>
-      </div>
-      <button type="submit">Kundenblock speichern</button>
-    </form>
-  </div>
 </div>
 
-{% for group in groups %}
-  <div class="group-box">
-    <div class="toolbar">
-      <div><strong>{{ group.customer_name }}</strong></div>
-      <span class="badge {{ group.status }}">{{ group.status }}</span>
-      <div class="muted">Zahlungsart: {{ 'Bar' if group.payment_method == 'cash' else 'Überweisung' }}</div>
-      <div class="muted">Summe: <strong>{{ euro(group.total) }}</strong></div>
-      {% if group.invoice_id %}<a class="btn small" href="/invoices/{{ group.invoice_id }}">Rechnung öffnen</a>{% endif %}
-      {% if not group.invoice_id and permissions.invoices_create %}
-        <form class="inline" method="post" action="/groups/{{ group.id }}/invoice-draft"><button class="small success" type="submit">Rechnung vorbereiten</button></form>
-      {% endif %}
-    </div>
-    <div class="help">{{ group.note or 'Keine Gruppen-Notiz' }}</div>
-    <div class="table-wrap" style="margin-top:12px">
-      <table>
-        <tr><th>Pferd</th><th>Leistung</th><th>Anzahl</th><th>Einheit</th><th class="right">Einzelpreis</th><th class="right">Gesamt</th><th>Notiz</th><th></th></tr>
-        {% for e in group.entries %}
-          <tr>
-            <td>{{ e.horse_name }}</td>
-            <td>{{ e.actual_service_name }}</td>
-            <td>{{ e.quantity }}</td>
-            <td>{{ e.unit }}</td>
-            <td class="right">{{ euro(e.unit_price_gross) }}</td>
-            <td class="right">{{ euro(e.total_price_gross) }}</td>
-            <td>{{ e.note or '-' }}</td>
-            <td>
-              {% if group.status not in ['invoiced', 'paid_cash', 'invoice_draft'] %}
-                <div class="row-actions">
-                  <a class="btn small" href="/entries/{{ e.id }}/edit">Bearbeiten</a>
-                  <form class="inline" method="post" action="/entries/{{ e.id }}/delete" onsubmit="return confirm('Eintrag löschen?')"><button class="small danger" type="submit">Löschen</button></form>
-                </div>
-              {% endif %}
-            </td>
-          </tr>
-        {% endfor %}
-      </table>
+<div class="card">
+  <h2>Position hinzufügen</h2>
+  <div class="help">Eine Position entspricht einem Besitzer und kann mehrere Pferde mit mehreren Leistungen enthalten.</div>
+  <form class="stack" method="post" action="/delivery-notes/{{ dn.id }}/items" id="position-form">
+    <div class="grid grid-3">
+      <label>Suche (Kunde / Pferd / Stall)
+        <input type="text" id="position-lookup" name="position_lookup" list="position-lookup-list" placeholder="Tippen und auswählen" required>
+      </label>
+      <div id="owner-lookup-wrap" style="display:none">
+        <label>Besitzer (bei Stall-Auswahl)
+          <input type="text" id="owner-lookup" name="owner_lookup" list="owner-lookup-list" placeholder="Kunde (Pferd/Stall) #C...">
+        </label>
+      </div>
+      <div style="display:flex;align-items:end;gap:8px;flex-wrap:wrap">
+        <a class="btn" href="/customers" target="_blank">+ Kunde</a>
+        <a class="btn" href="/horses" target="_blank">+ Pferd</a>
+      </div>
     </div>
 
-    {% if group.status not in ['invoiced', 'paid_cash', 'invoice_draft'] %}
-      <div class="section-divider"></div>
-      <h3>Leistung für diesen Kunden hinzufügen</h3>
-      <form class="stack entry-form" method="post" action="/groups/{{ group.id }}/entries">
-        <div class="grid grid-3">
-          <label>Pferd
-            <select name="horse_id" class="horse-select" data-customer-id="{{ group.customer_id }}">
-              <option value="">- vorhandenes Pferd wählen -</option>
-              {% for h in group.horses %}<option value="{{ h.id }}">{{ h.name }}</option>{% endfor %}
-            </select>
-          </label>
-          <label>oder neues Pferd<input type="text" name="new_horse_name" placeholder="nur wenn noch nicht angelegt"></label>
-          <label>Vorschlag<input type="text" name="suggested_service_name" class="suggested-field" readonly></label>
-        </div>
-        <div class="grid grid-3">
-          <label>Leistung<input type="text" name="service_name" class="service-field" required></label>
-          <label>Anzahl<input type="number" step="0.01" min="0.01" name="quantity" class="qty-field" required></label>
-          <label>Einheit<input type="text" name="unit" class="unit-field" required></label>
-        </div>
-        <div class="grid grid-3">
-          <label>Einzelpreis brutto<input type="number" step="0.01" min="0" name="unit_price_gross" class="price-field" required></label>
-          <label>Steuersatz<input type="number" step="0.01" min="0" name="vat_rate" class="vat-field" value="19" required></label>
-          <label>Notiz<input type="text" name="note"></label>
-        </div>
-        <button type="submit">Leistung speichern</button>
-      </form>
-    {% else %}
-      <div class="help">Dieser Kundenblock ist gesperrt, weil bereits eine Rechnung daraus erzeugt wurde.</div>
-    {% endif %}
-  </div>
-{% endfor %}
+    <div class="section-divider"></div>
+    <div id="horse-blocks" class="stack"></div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button type="button" class="btn" id="add-horse-btn">Weiteres Pferd +</button>
+      <button type="submit">Position übernehmen</button>
+    </div>
+
+    <input type="hidden" name="payload_json" id="payload-json">
+  </form>
+
+  <datalist id="position-lookup-list">
+    {% for c in customers %}
+      <option value="Kunde: {{ customer_label(c) }} ({{ c.customer_number }}) #C{{ c.id }}"></option>
+    {% endfor %}
+    {% for h in horses_lookup %}
+      <option value="Pferd: {{ h.name }} ({{ customer_label(h) }}{% if h.location_name %}/{{ h.location_name }}{% endif %}) #H{{ h.id }}"></option>
+    {% endfor %}
+    {% for l in locations_lookup %}
+      <option value="Stall: {{ l.name }}{% if l.city %} ({{ l.city }}){% endif %} #L{{ l.id }}"></option>
+    {% endfor %}
+  </datalist>
+  <datalist id="owner-lookup-list"></datalist>
+  <datalist id="horse-lookup-list"></datalist>
+  <datalist id="service-lookup-list">
+    {% for s in service_templates %}
+      <option value="{{ s.name }}"></option>
+    {% endfor %}
+  </datalist>
+</div>
+
+<div class="card" style="margin-top:16px">
+  <h2>Positionen</h2>
+  {% if not positions %}
+    <div class="help">Noch keine Positionen vorhanden.</div>
+  {% endif %}
+  {% for p in positions %}
+    <div class="group-box" style="margin-top:10px">
+      <div class="toolbar" style="justify-content:flex-start;gap:16px;flex-wrap:wrap">
+        <div><strong>Position {{ p.position_no }}:</strong> {{ p.customer_name }}</div>
+        <div class="muted">{{ p.customer_number }}</div>
+        <div><span class="badge {{ p.status }}">{{ p.status }}</span></div>
+        <div><strong>Gesamt brutto:</strong> {{ euro(p.total) }}</div>
+      </div>
+      {% if p.note %}
+        <div class="help">{{ p.note }}</div>
+      {% endif %}
+      <div class="table-wrap" style="margin-top:8px">
+        <table>
+          <tr><th>Pferd</th><th>Leistung</th><th>Anzahl</th><th>Einheit</th><th class="right">Einzelpreis</th><th class="right">Gesamt</th><th>Notiz</th><th></th></tr>
+          {% for horse in p.horses %}
+            <tr style="background:#f8f9fb">
+              <td><strong>{{ horse.horse_name }}</strong>{% if horse.location_name %}<div class="muted">{{ horse.location_name }}</div>{% endif %}</td>
+              <td colspan="6" class="muted">Zwischensumme Pferd: {{ euro(horse.horse_total) }}</td>
+              <td></td>
+            </tr>
+            {% for s in horse.services %}
+              <tr>
+                <td></td>
+                <td>{{ s.name }}</td>
+                <td>{{ s.quantity }}</td>
+                <td>{{ s.unit }}</td>
+                <td class="right">{{ euro(s.unit_price_gross) }}</td>
+                <td class="right">{{ euro(s.total_price_gross) }}</td>
+                <td>{{ s.note or '-' }}</td>
+                <td>
+                  <div class="row-actions">
+                    <a class="btn small" href="/entries/{{ s.entry_id }}/edit">Bearbeiten</a>
+                    <form class="inline" method="post" action="/entries/{{ s.entry_id }}/delete" onsubmit="return confirm('Eintrag löschen?')">
+                      <button class="small danger" type="submit">Löschen</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          {% endfor %}
+        </table>
+      </div>
+    </div>
+  {% endfor %}
+</div>
 
 <script>
-document.querySelectorAll('.entry-form').forEach(form => {
-  const select = form.querySelector('.horse-select');
-  if (!select) return;
-  select.addEventListener('change', async () => {
-    const horseId = select.value;
-    if (!horseId) return;
-    const customerId = select.dataset.customerId;
-    const res = await fetch(`/api/horse-suggestion/${horseId}?customer_id=${customerId}`);
-    const data = await res.json();
-    form.querySelector('.suggested-field').value = data.source ? `${data.source}: ${data.service_name || ''}` : '';
-    form.querySelector('.service-field').value = data.service_name || '';
-    form.querySelector('.qty-field').value = data.quantity || 1;
-    form.querySelector('.unit-field').value = data.unit || 'Stk.';
-    form.querySelector('.price-field').value = data.unit_price_gross || 0;
-    form.querySelector('.vat-field').value = data.vat_rate || 19;
+const horseCandidates = [
+{% for h in horses_lookup %}
+  {
+    id: {{ h.id }},
+    name: {{ h.name|tojson }},
+    customerId: {{ h.customer_id }},
+    customerLabel: {{ customer_label(h)|tojson }},
+    locationId: {% if h.location_id is none %}null{% else %}{{ h.location_id }}{% endif %},
+    locationLabel: {{ (h.location_name or '')|tojson }}
+  },
+{% endfor %}
+];
+
+const serviceTemplates = [
+{% for s in service_templates %}
+  {
+    name: {{ s.name|tojson }},
+    quantity: {{ s.default_quantity if s.default_quantity is not none else 1 }},
+    unit: {{ (s.default_unit or 'Stk.')|tojson }},
+    price: {{ s.default_unit_price_gross if s.default_unit_price_gross is not none else 0 }},
+    vat: {{ s.default_vat_rate if s.default_vat_rate is not none else 19 }}
+  },
+{% endfor %}
+];
+
+const positionLookupInput = document.getElementById('position-lookup');
+const ownerLookupWrap = document.getElementById('owner-lookup-wrap');
+const ownerLookupInput = document.getElementById('owner-lookup');
+const ownerLookupList = document.getElementById('owner-lookup-list');
+const horseLookupList = document.getElementById('horse-lookup-list');
+const horseBlocks = document.getElementById('horse-blocks');
+const addHorseBtn = document.getElementById('add-horse-btn');
+const form = document.getElementById('position-form');
+const payloadInput = document.getElementById('payload-json');
+
+let selectedPosition = null;
+
+function parseLookup(value) {
+  const match = /#([CHL])(\d+)/.exec(value || '');
+  if (!match) return null;
+  return { type: match[1], id: Number(match[2]) };
+}
+
+function uniqueBy(items, keyFn) {
+  const seen = new Set();
+  const out = [];
+  items.forEach(item => {
+    const key = keyFn(item);
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(item);
   });
+  return out;
+}
+
+function fillHorseLookupList(customerId = null, locationId = null) {
+  let filtered = horseCandidates.slice();
+  if (customerId) filtered = filtered.filter(h => h.customerId === customerId);
+  if (locationId) filtered = filtered.filter(h => h.locationId === locationId);
+  horseLookupList.innerHTML = '';
+  filtered.forEach(h => {
+    const text = `Pferd: ${h.name} (${h.customerLabel}${h.locationLabel ? '/' + h.locationLabel : ''}) #H${h.id}`;
+    const option = document.createElement('option');
+    option.value = text;
+    horseLookupList.appendChild(option);
+  });
+}
+
+function fillOwnerLookupForLocation(locationId) {
+  const horsesAtLocation = horseCandidates.filter(h => h.locationId === locationId);
+  const grouped = uniqueBy(horsesAtLocation, h => h.customerId).map(customerRef => {
+    const customerHorses = horsesAtLocation.filter(h => h.customerId === customerRef.customerId).slice(0, 3);
+    const horseNames = customerHorses.map(h => h.name).join(', ');
+    return {
+      customerId: customerRef.customerId,
+      customerLabel: customerRef.customerLabel,
+      locationLabel: customerRef.locationLabel,
+      horseNames,
+    };
+  });
+  ownerLookupList.innerHTML = '';
+  grouped.forEach(item => {
+    const option = document.createElement('option');
+    option.value = `${item.customerLabel} (${item.horseNames}/${item.locationLabel}) #C${item.customerId}`;
+    ownerLookupList.appendChild(option);
+  });
+}
+
+function resolvePositionState() {
+  selectedPosition = parseLookup(positionLookupInput.value);
+  ownerLookupWrap.style.display = 'none';
+  ownerLookupInput.value = '';
+
+  if (!selectedPosition) {
+    fillHorseLookupList();
+    return;
+  }
+
+  if (selectedPosition.type === 'C') {
+    fillHorseLookupList(selectedPosition.id, null);
+    return;
+  }
+
+  if (selectedPosition.type === 'H') {
+    const horse = horseCandidates.find(h => h.id === selectedPosition.id);
+    if (horse) {
+      fillHorseLookupList(horse.customerId, null);
+      const firstHorseInput = horseBlocks.querySelector('.horse-lookup');
+      if (firstHorseInput) {
+        firstHorseInput.value = `Pferd: ${horse.name} (${horse.customerLabel}${horse.locationLabel ? '/' + horse.locationLabel : ''}) #H${horse.id}`;
+        suggestForHorse(firstHorseInput);
+      }
+    }
+    return;
+  }
+
+  if (selectedPosition.type === 'L') {
+    ownerLookupWrap.style.display = 'block';
+    fillOwnerLookupForLocation(selectedPosition.id);
+    fillHorseLookupList(null, selectedPosition.id);
+  }
+}
+
+function createServiceLine() {
+  const row = document.createElement('div');
+  row.className = 'service-line';
+  row.innerHTML = `
+    <div class="grid grid-3">
+      <label>Leistung
+        <input type="text" class="service-name" list="service-lookup-list" required>
+      </label>
+      <label>Anzahl
+        <input type="number" class="quantity" min="1" step="1" value="1" required>
+      </label>
+      <label>Einheit
+        <select class="unit">
+          <option value="Stk.">Stk.</option>
+          <option value="km">km</option>
+          <option value="Psch.">Psch.</option>
+        </select>
+      </label>
+    </div>
+    <div class="grid grid-2">
+      <label>Preis brutto
+        <input type="number" class="price" min="0" step="0.01" value="0" required>
+      </label>
+      <label>Notiz
+        <input type="text" class="line-note">
+      </label>
+    </div>
+    <div style="display:flex;justify-content:flex-end">
+      <button type="button" class="small danger remove-service-line">Leistung entfernen</button>
+    </div>
+  `;
+  return row;
+}
+
+function createHorseBlock() {
+  const block = document.createElement('div');
+  block.className = 'group-box horse-block';
+  block.innerHTML = `
+    <div class="toolbar" style="justify-content:space-between">
+      <strong>Pferd</strong>
+      <button type="button" class="small danger remove-horse-block">Pferd entfernen</button>
+    </div>
+    <label>Pferd suchen
+      <input type="text" class="horse-lookup" list="horse-lookup-list" placeholder="Pferd (Kunde/Stall) #H..." required>
+    </label>
+    <div class="stack service-lines"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button type="button" class="btn small add-service-line">Weitere Leistung +</button>
+    </div>
+  `;
+  const linesWrap = block.querySelector('.service-lines');
+  linesWrap.appendChild(createServiceLine());
+  return block;
+}
+
+function applyTemplateDefaults(serviceInput) {
+  const line = serviceInput.closest('.service-line');
+  if (!line) return;
+  const tpl = serviceTemplates.find(
+    t => t.name.toLowerCase() === (serviceInput.value || '').trim().toLowerCase()
+  );
+  if (!tpl) return;
+  line.querySelector('.quantity').value = Math.max(1, Math.round(Number(tpl.quantity || 1)));
+  line.querySelector('.unit').value = tpl.unit || 'Stk.';
+  line.querySelector('.price').value = tpl.price || 0;
+}
+
+async function suggestForHorse(horseLookupInput) {
+  const parsed = parseLookup(horseLookupInput.value);
+  if (!parsed || parsed.type !== 'H') return;
+  const horse = horseCandidates.find(h => h.id === parsed.id);
+  if (!horse) return;
+  try {
+    const res = await fetch(`/api/horse-suggestion/${horse.id}?customer_id=${horse.customerId}`);
+    const data = await res.json();
+    const block = horseLookupInput.closest('.horse-block');
+    const firstLine = block.querySelector('.service-line');
+    if (!firstLine) return;
+    if (!firstLine.querySelector('.service-name').value.trim()) firstLine.querySelector('.service-name').value = data.service_name || '';
+    firstLine.querySelector('.quantity').value = Math.max(1, Math.round(Number(data.quantity || 1)));
+    firstLine.querySelector('.unit').value = data.unit || 'Stk.';
+    firstLine.querySelector('.price').value = data.unit_price_gross || 0;
+  } catch (_) {
+    // no-op
+  }
+}
+
+function syncRemoveButtons() {
+  const blocks = horseBlocks.querySelectorAll('.horse-block');
+  blocks.forEach(block => {
+    const btn = block.querySelector('.remove-horse-block');
+    btn.style.display = blocks.length > 1 ? 'inline-block' : 'none';
+  });
+}
+
+function collectPayload() {
+  const horses = [];
+  horseBlocks.querySelectorAll('.horse-block').forEach(block => {
+    const horseLookup = block.querySelector('.horse-lookup').value.trim();
+    if (!horseLookup) return;
+    const services = [];
+    block.querySelectorAll('.service-line').forEach(line => {
+      const serviceName = line.querySelector('.service-name').value.trim();
+      if (!serviceName) return;
+      services.push({
+        service_name: serviceName,
+        quantity: Number(line.querySelector('.quantity').value || 1),
+        unit: line.querySelector('.unit').value || 'Stk.',
+        unit_price_gross: Number(line.querySelector('.price').value || 0),
+        line_note: line.querySelector('.line-note').value || '',
+      });
+    });
+    if (services.length > 0) {
+      horses.push({ horse_lookup: horseLookup, services });
+    }
+  });
+  return { horses };
+}
+
+positionLookupInput.addEventListener('change', resolvePositionState);
+positionLookupInput.addEventListener('blur', resolvePositionState);
+
+ownerLookupInput.addEventListener('change', () => {
+  const owner = parseLookup(ownerLookupInput.value);
+  if (!owner || owner.type !== 'C') return;
+  const loc = selectedPosition && selectedPosition.type === 'L' ? selectedPosition.id : null;
+  fillHorseLookupList(owner.id, loc);
 });
+
+horseBlocks.addEventListener('click', event => {
+  if (event.target.classList.contains('add-service-line')) {
+    const block = event.target.closest('.horse-block');
+    block.querySelector('.service-lines').appendChild(createServiceLine());
+  }
+  if (event.target.classList.contains('remove-service-line')) {
+    const lines = event.target.closest('.service-lines') || event.target.closest('.horse-block').querySelector('.service-lines');
+    const all = lines.querySelectorAll('.service-line');
+    if (all.length <= 1) return;
+    event.target.closest('.service-line').remove();
+  }
+  if (event.target.classList.contains('remove-horse-block')) {
+    event.target.closest('.horse-block').remove();
+    syncRemoveButtons();
+  }
+});
+
+horseBlocks.addEventListener('change', event => {
+  if (event.target.classList.contains('service-name')) {
+    applyTemplateDefaults(event.target);
+  }
+  if (event.target.classList.contains('horse-lookup')) {
+    suggestForHorse(event.target);
+  }
+});
+
+addHorseBtn.addEventListener('click', () => {
+  horseBlocks.appendChild(createHorseBlock());
+  syncRemoveButtons();
+});
+
+form.addEventListener('submit', event => {
+  if (!parseLookup(positionLookupInput.value)) {
+    event.preventDefault();
+    alert('Bitte Auswahl aus der Suche übernehmen.');
+    return;
+  }
+  if (selectedPosition && selectedPosition.type === 'L') {
+    const owner = parseLookup(ownerLookupInput.value);
+    if (!owner || owner.type !== 'C') {
+      event.preventDefault();
+      alert('Bitte bei Stall-Auswahl einen Besitzer auswählen.');
+      return;
+    }
+  }
+  const payload = collectPayload();
+  if (!payload.horses.length) {
+    event.preventDefault();
+    alert('Bitte mindestens ein Pferd mit Leistung eintragen.');
+    return;
+  }
+  payloadInput.value = JSON.stringify(payload);
+});
+
+horseBlocks.appendChild(createHorseBlock());
+syncRemoveButtons();
+fillHorseLookupList();
 </script>
 {% endblock %}
