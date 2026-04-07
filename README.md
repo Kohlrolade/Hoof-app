@@ -70,5 +70,8 @@ Die alte Gewohnheit `uvicorn app:app --reload` bleibt absichtlich erhalten.
 ## Testen
 
 ```bash
+pip install -r requirements-dev.txt
 python -m unittest discover -s tests -v
 ```
+
+Hinweis: `requirements-dev.txt` enthält auch `httpx`, das für `fastapi.testclient` benötigt wird.
